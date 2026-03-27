@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, FolderClosed, LoaderCircle, MoveUp, X } from "lucide-react";
 import { fetchCapabilities, fetchServerWorkspace } from "./api";
+import type { BackendConnectionProfile } from "./types";
 
 export function ServerFolderDialog({
   open,
+  backendProfile,
   onClose,
   onSelectWorkspace,
 }: {
   open: boolean;
+  backendProfile?: BackendConnectionProfile | null;
   onClose: () => void;
   onSelectWorkspace: (path: string) => Promise<void> | void;
 }) {
@@ -26,17 +29,13 @@ export function ServerFolderDialog({
       try {
         setLoading(true);
         setError(null);
-        const capabilities = await fetchCapabilities();
+        const capabilities = await fetchCapabilities(backendProfile);
         if (cancelled) return;
         setBaseDir(capabilities.file_browser_base_dir);
         setPath(capabilities.file_browser_base_dir);
-        const workspace = await fetchServerWorkspace(capabilities.file_browser_base_dir);
+        const workspace = await fetchServerWorkspace(capabilities.file_browser_base_dir, 1, backendProfile);
         if (cancelled) return;
-        setDirectories(
-          (workspace?.children ?? [])
-            .filter((node) => node.kind === "directory")
-            .map((node) => node.path)
-        );
+        setDirectories((workspace?.children ?? []).filter((node) => node.kind === "directory").map((node) => node.path));
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to open server folder dialog.");
       } finally {
@@ -48,19 +47,15 @@ export function ServerFolderDialog({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [backendProfile, open]);
 
   async function browse(nextPath: string) {
     try {
       setLoading(true);
       setError(null);
       setPath(nextPath);
-      const workspace = await fetchServerWorkspace(nextPath);
-      setDirectories(
-        (workspace?.children ?? [])
-          .filter((node) => node.kind === "directory")
-          .map((node) => node.path)
-      );
+      const workspace = await fetchServerWorkspace(nextPath, 1, backendProfile);
+      setDirectories((workspace?.children ?? []).filter((node) => node.kind === "directory").map((node) => node.path));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to browse server directory.");
     } finally {
@@ -72,9 +67,9 @@ export function ServerFolderDialog({
 
   function handleGoUp() {
     if (!canGoUp) return;
-    const normalizedBase = baseDir.replace(/[\\/]+$/, "");
-    const segments = path.split(/[\\/]+/).filter(Boolean);
-    const baseSegments = normalizedBase.split(/[\\/]+/).filter(Boolean);
+    const normalizedBase = baseDir.replace(/[\/]+$/, "");
+    const segments = path.split(/[\/]+/).filter(Boolean);
+    const baseSegments = normalizedBase.split(/[\/]+/).filter(Boolean);
     const nextSegments = segments.slice(0, Math.max(baseSegments.length, segments.length - 1));
     const prefix = path.startsWith("/") ? "/" : "";
     const nextPath = `${prefix}${nextSegments.join("/")}`;
@@ -89,7 +84,7 @@ export function ServerFolderDialog({
         <div className="flex items-center justify-between border-b border-[#2a2d2e] px-4 py-3">
           <div>
             <h2 className="text-sm font-semibold text-[#f0f0f0]">Open Server Folder</h2>
-            <p className="text-xs text-[#9d9d9d]">Browse a directory on the backend server.</p>
+            <p className="text-xs text-[#9d9d9d]">Browse a directory on the selected backend server.</p>
           </div>
           <button className="rounded p-1 text-[#9d9d9d] hover:bg-[#2a2d2e] hover:text-white" onClick={onClose}>
             <X className="h-4 w-4" />

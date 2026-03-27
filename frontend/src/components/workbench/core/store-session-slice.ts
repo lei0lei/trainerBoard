@@ -1,4 +1,4 @@
-import { createId } from "./store-helpers";
+﻿import { createId } from "./store-helpers";
 import type { SessionLevel, SessionSlice, WorkbenchSliceCreator } from "./store-types";
 
 export const createSessionSlice: WorkbenchSliceCreator<SessionSlice> = (set) => ({
@@ -19,3 +19,4 @@ export const createSessionSlice: WorkbenchSliceCreator<SessionSlice> = (set) => 
       };
     }),
 });
+

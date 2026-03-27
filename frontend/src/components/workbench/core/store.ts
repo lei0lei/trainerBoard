@@ -1,8 +1,10 @@
-"use client";
+﻿"use client";
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { createConnectionSlice } from "./store-connection-slice";
 import { createEditorSlice } from "./store-editor-slice";
+import { createExtensionsSlice } from "./store-extensions-slice";
 import { createLayoutSlice } from "./store-layout-slice";
 import { createLitegraphSlice } from "./store-litegraph-slice";
 import { createSessionSlice } from "./store-session-slice";
@@ -13,14 +15,17 @@ export const useWorkbenchStore = create<WorkbenchState>()(
   persist(
     (...args) => ({
       ...createLayoutSlice(...args),
+      ...createConnectionSlice(...args),
       ...createSessionSlice(...args),
       ...createWorkspaceSlice(...args),
       ...createEditorSlice(...args),
       ...createLitegraphSlice(...args),
+      ...createExtensionsSlice(...args),
     }),
     {
       name: "trainerboard-workbench-ui",
       storage: createJSONStorage(() => localStorage),
+      skipHydration: true,
       partialize: (state) => ({
         showPrimarySidebar: state.showPrimarySidebar,
         showSecondarySidebar: state.showSecondarySidebar,
@@ -31,6 +36,8 @@ export const useWorkbenchStore = create<WorkbenchState>()(
         secondarySidebarWidth: state.secondarySidebarWidth,
         panelHeight: state.panelHeight,
         explorerUiByWorkspace: state.explorerUiByWorkspace,
+        backendProfiles: state.backendProfiles,
+        activeBackendProfileId: state.activeBackendProfileId,
         workspace: state.workspace,
         recentWorkspaces: state.recentWorkspaces,
         sessionEvents: state.sessionEvents,
@@ -51,9 +58,15 @@ export const useWorkbenchStore = create<WorkbenchState>()(
         groupTabIds: state.groupTabIds,
         activeIds: state.activeIds,
         focusedGroupIndex: state.focusedGroupIndex,
+        disabledPluginIds: state.disabledPluginIds,
+        extensionSearchQuery: state.extensionSearchQuery,
+        extensionCategoryFilter: state.extensionCategoryFilter,
+        extensionStatusFilter: state.extensionStatusFilter,
+        selectedExtensionId: state.selectedExtensionId,
       }),
     }
   )
 );
 
 export type * from "./store-types";
+

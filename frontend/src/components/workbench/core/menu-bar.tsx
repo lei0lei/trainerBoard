@@ -1,4 +1,4 @@
-import { Check, ChevronRight } from "lucide-react";
+﻿import { Check, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { WorkbenchResolvedCommand } from "./command-registry";
 import type { WorkbenchMenuId, WorkbenchMenuNode } from "./commands";
@@ -145,3 +145,4 @@ export function MenuBar({
     </header>
   );
 }
+

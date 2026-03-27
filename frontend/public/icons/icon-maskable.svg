@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TrainerBoard maskable icon">
+  <defs>
+    <linearGradient id="grad-mask" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="#020617"/>
+  <rect x="76" y="76" width="360" height="360" rx="96" fill="#0f172a"/>
+  <path d="M128 152h256v56H270v168h-56V208H128z" fill="url(#grad-mask)"/>
+  <circle cx="344" cy="316" r="54" fill="#38bdf8" opacity="0.96"/>
+</svg>

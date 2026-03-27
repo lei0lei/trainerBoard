@@ -1,4 +1,4 @@
-export * from "./activity-bar";
+﻿export * from "./activity-bar";
 export * from "./activity-placeholders";
 export * from "./activity-registry";
 export * from "./activity-types";
@@ -20,3 +20,4 @@ export * from "./use-workbench-litegraph-actions";
 export * from "./use-workbench-selected-state";
 export * from "./workbench-layout";
 export * from "./workbench-shell";
+

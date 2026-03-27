@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import { ActivityBar } from "./activity-bar";
 import { CommandPalette } from "./command-palette";
+import { ConnectionDialog } from "./connection-dialog";
 import { ExternalFileChangeDialog } from "./external-file-change-dialog";
 import { ExplorerFileDialog } from "./explorer-file-dialog";
 import { MenuBar } from "./menu-bar";
@@ -15,6 +16,7 @@ export function WorkbenchLayout({
   workspaceInputRef,
   serverDialogOpen,
   commandPaletteOpen,
+  connectionDialogOpen,
   commandPaletteCommands,
   menuCommands,
   menuNodes,
@@ -29,8 +31,14 @@ export function WorkbenchLayout({
   panelHeight,
   activeSidebar,
   activeContribution,
+  availableContributions,
   activityContext,
   recentWorkspaces,
+  backendProfiles,
+  activeBackendProfile,
+  backendConnectionState,
+  backendConnectionError,
+  backendHealth,
   canSaveActiveTab,
   canOpenServerFolder,
   onSelectActivity,
@@ -44,6 +52,12 @@ export function WorkbenchLayout({
   onSave,
   onOpenCommandPalette,
   onCloseCommandPalette,
+  onOpenConnectionDialog,
+  onCloseConnectionDialog,
+  onActivateBackendProfile,
+  onDeleteBackendProfile,
+  onSaveBackendProfile,
+  onTestBackendProfile,
   onCloseExplorerDialog,
   onCloseExternalFileChangeDialog,
   onToggleExternalFileCompare,
@@ -80,7 +94,25 @@ export function WorkbenchLayout({
         canToggleSecondarySidebar={supportsSecondarySidebar}
       />
 
-      <ServerFolderDialog open={serverDialogOpen} onClose={onCloseServerDialog} onSelectWorkspace={onSelectServerWorkspace} />
+      <ServerFolderDialog
+        open={serverDialogOpen}
+        backendProfile={activeBackendProfile}
+        onClose={onCloseServerDialog}
+        onSelectWorkspace={onSelectServerWorkspace}
+      />
+      <ConnectionDialog
+        open={connectionDialogOpen}
+        profiles={backendProfiles}
+        activeProfileId={activeBackendProfile?.id ?? ""}
+        connectionState={backendConnectionState}
+        connectionError={backendConnectionError}
+        currentHealth={backendHealth}
+        onClose={onCloseConnectionDialog}
+        onActivateProfile={onActivateBackendProfile}
+        onSaveProfile={onSaveBackendProfile}
+        onDeleteProfile={onDeleteBackendProfile}
+        onTestProfile={onTestBackendProfile}
+      />
       <ExplorerFileDialog
         dialog={explorerDialog}
         onClose={onCloseExplorerDialog}
@@ -97,6 +129,7 @@ export function WorkbenchLayout({
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <ActivityBar
+          contributions={availableContributions}
           activeSidebar={activeSidebar}
           showPrimarySidebar={showPrimarySidebar}
           onSelect={onSelectActivity}
@@ -138,7 +171,14 @@ export function WorkbenchLayout({
         </div>
       </div>
 
-      <StatusBar />
+      <StatusBar
+        activeBackendProfile={activeBackendProfile}
+        backendConnectionState={backendConnectionState}
+        backendConnectionError={backendConnectionError}
+        backendHealth={backendHealth}
+        onOpenConnections={onOpenConnectionDialog}
+      />
     </main>
   );
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 import { clamp } from "@/lib/utils";
@@ -127,3 +127,4 @@ export function useWorkbenchLayoutEffects({
     showSecondarySidebar,
   ]);
 }
+

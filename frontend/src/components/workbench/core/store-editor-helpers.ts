@@ -1,4 +1,4 @@
-import type { EditorTab, FileNode } from "./types";
+﻿import type { EditorTab, FileNode } from "./types";
 
 export const DEFAULT_EDITOR_GROUP_TAB_IDS: string[][] = [[], []];
 export const DEFAULT_EDITOR_ACTIVE_IDS: (string | null)[] = [null, null];
@@ -75,3 +75,4 @@ export function removeEditorTabsByPath(
     removedTabIds,
   };
 }
+

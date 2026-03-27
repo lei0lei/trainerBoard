@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/generate-workbench-plugin-registry.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/generate-workbench-plugin-registry.mjs",
     "build": "next build",
     "start": "serve out -l 3000",
     "preview": "serve out -l 3000",
+    "prelint": "node scripts/generate-workbench-plugin-registry.mjs",
     "lint": "next lint"
   },
   "dependencies": {

@@ -1,1 +1,2 @@
-export { WorkbenchShell } from "./core/workbench-shell";
+﻿export { WorkbenchShell } from "./core/workbench-shell";
+

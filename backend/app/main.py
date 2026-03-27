@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -12,18 +13,24 @@ from app.terminal_api import router as terminal_router
 settings = get_settings()
 FRONTEND_OUT_DIR = settings.frontend_out_dir
 
-app = FastAPI(title="TrainerBoard API", version="0.1.0")
+app = FastAPI(title="TrainerBoard API", version=settings.app_version)
 app.include_router(filesystem_router)
 app.include_router(litegraph_router)
 app.include_router(terminal_router)
 
+cors_origins = list(settings.cors_allowed_origins)
 if settings.allow_dev_cors:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
+    cors_origins.extend(
+        [
             "http://127.0.0.1:3000",
             "http://localhost:3000",
-        ],
+        ]
+    )
+
+if cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=sorted(set(cors_origins)),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -31,11 +38,20 @@ if settings.allow_dev_cors:
 
 
 @app.get("/api/health")
-async def health_check() -> dict[str, str]:
+async def health_check() -> dict[str, object]:
     return {
         "status": "ok",
         "service": "trainerboard-fastapi",
-        "version": "0.1.0",
+        "version": settings.app_version,
+        "app_env": settings.app_env,
+        "instance_name": settings.app_instance_name,
+        "instance_id": settings.app_instance_id,
+        "platform": os.name,
+        "transport": {
+            "http": True,
+            "websocket": True,
+            "ssh_proxy": settings.enable_terminal,
+        },
     }
 
 

@@ -1,4 +1,4 @@
-import type { EditorTab } from "./types";
+﻿import type { EditorTab } from "./types";
 import { updateWorkspaceFileContent } from "./store-helpers";
 import { createEditorTabFromNode, DEFAULT_EDITOR_ACTIVE_IDS, DEFAULT_EDITOR_GROUP_TAB_IDS, findEditorGroupIndex } from "./store-editor-helpers";
 import type { EditorSlice, WorkbenchSliceCreator } from "./store-types";
@@ -229,3 +229,4 @@ export const createEditorSlice: WorkbenchSliceCreator<EditorSlice> = (set, get) 
       };
     }),
 });
+

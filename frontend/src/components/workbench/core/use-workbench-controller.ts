@@ -1,16 +1,23 @@
-"use client";
+﻿"use client";
 
 import type { ChangeEvent, DragEvent, InputHTMLAttributes, MutableRefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { editor as MonacoEditor } from "monaco-editor";
 import {
+  fetchBackendHealth,
   fetchCapabilities,
   fetchServerFile,
   fetchServerWorkspace,
   type FileSystemWatchEvent,
   type CapabilitiesResponse,
+  type HealthResponse,
 } from "./api";
-import { getActivityContribution, type ActivityRenderContext } from "./activity-registry";
+import {
+  activityContributions,
+  getActivityContribution,
+  getAvailableActivityContributions,
+  type ActivityRenderContext,
+} from "./activity-registry";
 import type { ActivityContribution } from "./activity-types";
 import type { WorkbenchResolvedCommand } from "./command-registry";
 import type { WorkbenchCommand } from "./commands";
@@ -20,15 +27,13 @@ import type { ExplorerDialogState } from "./explorer-file-dialog";
 import { useWorkbenchLayoutEffects } from "./use-workbench-layout-effects";
 import { useWorkbenchCommandRegistry } from "./use-workbench-command-registry";
 import { useExplorerDialog } from "./use-explorer-dialog";
-import {
-  buildTreeFromDirectoryHandle,
-  buildTreeFromFileList,
-  getFileSystemProvider,
-} from "../explorer";
+import { buildTreeFromDirectoryHandle, buildTreeFromFileList } from "./file-system";
+import { buildBackendConnectionProfile } from "./backend-connection";
+import { getFileSystemProvider } from "./file-system-provider";
 import { parentPathOf } from "./path-utils";
-import type { FileNode, WorkspaceRoot } from "./types";
+import type { BackendConnectionProfile, FileNode, WorkspaceRoot } from "./types";
 import { useWorkbenchStore } from "./store";
-import { applyWorkspaceWatchEvents, buildWorkspaceIndex, updateWorkspaceDirectoryChildren } from "./store-helpers";
+import { applyWorkspaceWatchEvents, buildWorkspaceIndex, createId, updateWorkspaceDirectoryChildren } from "./store-helpers";
 import { useWorkbenchSelectedState } from "./use-workbench-selected-state";
 import { useWorkbenchFsWatch } from "./use-workbench-fs-watch";
 import { useWorkbenchLitegraphActions } from "./use-workbench-litegraph-actions";
@@ -61,8 +66,15 @@ export type WorkbenchController = {
   panelHeight: number;
   activeSidebar: ReturnType<typeof useWorkbenchStore.getState>["activeSidebar"];
   activeContribution: ActivityContribution;
+  availableContributions: ActivityContribution[];
   activityContext: ActivityRenderContext;
   recentWorkspaces: ReturnType<typeof useWorkbenchStore.getState>["recentWorkspaces"];
+  backendProfiles: BackendConnectionProfile[];
+  activeBackendProfile: BackendConnectionProfile | null;
+  backendConnectionState: "idle" | "connecting" | "connected" | "error";
+  backendConnectionError: string | null;
+  backendHealth: HealthResponse | null;
+  connectionDialogOpen: boolean;
   canSaveActiveTab: boolean;
   canOpenServerFolder: boolean;
   onSelectActivity: (key: ReturnType<typeof useWorkbenchStore.getState>["activeSidebar"]) => void;
@@ -76,6 +88,26 @@ export type WorkbenchController = {
   onSave: () => Promise<void>;
   onOpenCommandPalette: () => void;
   onCloseCommandPalette: () => void;
+  onOpenConnectionDialog: () => void;
+  onCloseConnectionDialog: () => void;
+  onActivateBackendProfile: (profileId: string) => void;
+  onDeleteBackendProfile: (profileId: string) => void;
+  onSaveBackendProfile: (draft: {
+    id: string | null;
+    name: string;
+    kind: BackendConnectionProfile["kind"];
+    httpBaseUrl: string;
+    wsBaseUrl: string;
+    description: string;
+  }) => string;
+  onTestBackendProfile: (draft: {
+    id: string | null;
+    name: string;
+    kind: BackendConnectionProfile["kind"];
+    httpBaseUrl: string;
+    wsBaseUrl: string;
+    description: string;
+  }) => Promise<{ health: HealthResponse; capabilities: CapabilitiesResponse }>;
   onCloseExplorerDialog: () => void;
   onCloseExternalFileChangeDialog: () => void;
   onToggleExternalFileCompare: () => void;
@@ -97,6 +129,8 @@ export function useWorkbenchController(): WorkbenchController {
     showSecondarySidebar,
     showPanel,
     activeSidebar,
+    backendProfiles,
+    activeBackendProfileId,
     workspace,
     recentWorkspaces,
     sessionEvents,
@@ -113,6 +147,11 @@ export function useWorkbenchController(): WorkbenchController {
     dragState,
     dropIndicator,
     explorerUiByWorkspace,
+    disabledPluginIds,
+    extensionSearchQuery,
+    extensionCategoryFilter,
+    extensionStatusFilter,
+    selectedExtensionId,
     litegraphGraph,
     litegraphWorkflowName,
     litegraphQueue,
@@ -122,6 +161,9 @@ export function useWorkbenchController(): WorkbenchController {
     setShowSecondarySidebar,
     setShowPanel,
     setActiveSidebar,
+    saveBackendProfile,
+    removeBackendProfile,
+    setActiveBackendProfile,
     setWorkspace,
     renameWorkspaceNodePath,
     removeWorkspaceNodePath,
@@ -138,6 +180,13 @@ export function useWorkbenchController(): WorkbenchController {
     setExplorerExpandedPaths,
     setExplorerSelectedPath,
     setExplorerScrollTop,
+    enablePlugin,
+    disablePlugin,
+    togglePluginEnabled,
+    setExtensionSearchQuery,
+    setExtensionCategoryFilter,
+    setExtensionStatusFilter,
+    setSelectedExtensionId,
     resetWorkbenchWithWorkspace,
     addSessionEvent,
     setActiveTab,
@@ -152,13 +201,18 @@ export function useWorkbenchController(): WorkbenchController {
   } = useWorkbenchSelectedState();
 
   const dragMovedRef = useRef(false);
+  const previousBackendProfileIdRef = useRef<string | null>(activeBackendProfileId || null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const workspaceInputRef = useRef<HTMLInputElement | null>(null);
   const fsWatchPendingPathsRef = useRef<Set<string>>(new Set());
   const fsWatchRefreshingRef = useRef(false);
   const externalChangeCheckInFlightRef = useRef<Promise<void> | null>(null);
   const [capabilities, setCapabilities] = useState<CapabilitiesResponse | null>(null);
+  const [backendHealth, setBackendHealth] = useState<HealthResponse | null>(null);
+  const [backendConnectionState, setBackendConnectionState] = useState<"idle" | "connecting" | "connected" | "error">("idle");
+  const [backendConnectionError, setBackendConnectionError] = useState<string | null>(null);
   const [serverDialogOpen, setServerDialogOpen] = useState(false);
+  const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [externalFileChangeDialog, setExternalFileChangeDialog] = useState<ExternalFileChangeDialogState | null>(null);
 
@@ -176,7 +230,8 @@ export function useWorkbenchController(): WorkbenchController {
     return (fallbackId ? groups.flat().find((tab) => tab.id === fallbackId) : null) ?? null;
   }, [activeEditorTab, activeIds, groups]);
 
-  const fsProvider = useMemo(() => getFileSystemProvider(workspace), [workspace]);
+  const activeBackendProfile = useMemo(() => backendProfiles.find((item) => item.id === activeBackendProfileId) ?? backendProfiles[0] ?? null, [activeBackendProfileId, backendProfiles]);
+  const fsProvider = useMemo(() => getFileSystemProvider(workspace, activeBackendProfile), [activeBackendProfile, workspace]);
   const preferServerFolderDialog = capabilities?.server_file_browser && capabilities.app_env === "linux";
   const canOpenServerFolder = capabilities?.server_file_browser ?? false;
   const canSaveActiveTab =
@@ -184,7 +239,11 @@ export function useWorkbenchController(): WorkbenchController {
     !!fsProvider?.capabilities.canSave &&
     !!fsProvider.canSaveFile(activeEditorTab.path);
   const activeDiagnostics = activeEditorTab ? diagnosticsByTab[activeEditorTab.id] ?? [] : [];
-  const activeContribution = getActivityContribution(activeSidebar);
+  const availableContributions = useMemo(
+    () => getAvailableActivityContributions(disabledPluginIds),
+    [disabledPluginIds]
+  );
+  const activeContribution = getActivityContribution(activeSidebar, availableContributions);
   const supportsSecondarySidebar = activeContribution.manifest.capabilities.secondarySidebar;
   const supportsPanel = activeContribution.manifest.capabilities.panel;
   const workspaceKey = workspace?.root_path ?? workspace?.id ?? "";
@@ -200,6 +259,7 @@ export function useWorkbenchController(): WorkbenchController {
     handleRetryLitegraphQueue,
     handleClearLitegraphQueue,
   } = useWorkbenchLitegraphActions({
+    backendProfile: activeBackendProfile,
     litegraphGraph,
     litegraphWorkflowName,
     setLitegraphLatestResult,
@@ -209,23 +269,50 @@ export function useWorkbenchController(): WorkbenchController {
   });
 
   useEffect(() => {
+    const previousBackendProfileId = previousBackendProfileIdRef.current;
+    const nextBackendProfileId = activeBackendProfile?.id ?? null;
+
+    if (
+      previousBackendProfileId &&
+      nextBackendProfileId &&
+      previousBackendProfileId !== nextBackendProfileId &&
+      workspace?.source === "server"
+    ) {
+      resetWorkbenchWithWorkspace(null);
+      addSessionEvent(`Switched backend to ${activeBackendProfile?.name ?? nextBackendProfileId}. Cleared server workspace context.`);
+    }
+
+    previousBackendProfileIdRef.current = nextBackendProfileId;
+  }, [activeBackendProfile?.id, activeBackendProfile?.name, addSessionEvent, resetWorkbenchWithWorkspace, workspace?.source]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function bootstrap() {
       try {
-        const nextCapabilities = await fetchCapabilities();
+        setBackendConnectionState("connecting");
+        setBackendConnectionError(null);
+        const [nextHealth, nextCapabilities] = await Promise.all([
+          fetchBackendHealth(activeBackendProfile),
+          fetchCapabilities(activeBackendProfile),
+        ]);
         if (cancelled) return;
+        setBackendHealth(nextHealth);
         setCapabilities(nextCapabilities);
+        setBackendConnectionState("connected");
 
         if (workspace?.source === "server" && workspace.root_path) {
-          const freshWorkspace = await fetchServerWorkspace(workspace.root_path, 1);
+          const freshWorkspace = await fetchServerWorkspace(workspace.root_path, 1, activeBackendProfile);
           if (!cancelled) {
             setWorkspace(freshWorkspace);
           }
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
+          setBackendHealth(null);
           setCapabilities(null);
+          setBackendConnectionState("error");
+          setBackendConnectionError(error instanceof Error ? error.message : "Failed to connect to backend.");
         }
       }
     }
@@ -234,7 +321,7 @@ export function useWorkbenchController(): WorkbenchController {
     return () => {
       cancelled = true;
     };
-  }, [setWorkspace, workspace?.root_path, workspace?.source]);
+  }, [activeBackendProfile, setWorkspace, workspace?.root_path, workspace?.source]);
 
   useWorkbenchLayoutEffects({
     resizeState,
@@ -252,6 +339,17 @@ export function useWorkbenchController(): WorkbenchController {
     showSecondarySidebar,
     showPanel,
   });
+
+  useEffect(() => {
+    if (availableContributions.length === 0) return;
+    const exists = availableContributions.some((item) => item.manifest.key === activeSidebar);
+    if (!exists) {
+      const fallback = availableContributions.find((item) => item.manifest.key === "extensions") ?? availableContributions[0];
+      if (fallback) {
+        setActiveSidebar(fallback.manifest.key);
+      }
+    }
+  }, [activeSidebar, availableContributions, setActiveSidebar]);
 
   useEffect(() => {
     if (workspaceKey && currentSecondaryTab?.path) {
@@ -277,7 +375,7 @@ export function useWorkbenchController(): WorkbenchController {
   const refreshWorkspacePaths = useCallback(
     async (paths: string[], source: "manual" | "watch" = "manual") => {
       const currentWorkspace = useWorkbenchStore.getState().workspace;
-      const currentProvider = getFileSystemProvider(currentWorkspace);
+      const currentProvider = getFileSystemProvider(currentWorkspace, activeBackendProfile);
       if (!currentWorkspace || !currentWorkspace.root_path || !currentProvider) return;
 
       const targetPaths = Array.from(new Set(paths.filter(Boolean))).sort((left, right) => {
@@ -317,7 +415,7 @@ export function useWorkbenchController(): WorkbenchController {
         setWorkspace(nextWorkspace);
       }
     },
-    [addSessionEvent, setWorkspace]
+    [activeBackendProfile, addSessionEvent, setWorkspace]
   );
 
   const refreshWorkspaceNode = useCallback(
@@ -392,7 +490,7 @@ export function useWorkbenchController(): WorkbenchController {
           });
           if (!shouldCheck) return;
 
-          const latestFile = await fetchServerFile(activeTab.path);
+          const latestFile = await fetchServerFile(activeTab.path, activeBackendProfile);
           if (latestFile.content === activeTab.content) return;
 
           setExternalFileChangeDialog((current) => {
@@ -417,13 +515,14 @@ export function useWorkbenchController(): WorkbenchController {
         }
       })();
     },
-    []
+    [activeBackendProfile]
   );
 
   useWorkbenchFsWatch({
     enabled: workspace?.source === "server",
     rootPath: workspace?.root_path,
     watchedPaths: watchedDirectoryPaths,
+    backendProfile: activeBackendProfile,
     onEvent: useCallback(
       (payload: FileSystemWatchEvent) => {
         applyIncrementalWatchEvents(payload);
@@ -486,12 +585,34 @@ export function useWorkbenchController(): WorkbenchController {
   });
 
   function handleActivityClick(next: typeof activeSidebar) {
-    if (activeSidebar === next && showPrimarySidebar) {
+    const nextContribution = getActivityContribution(next, availableContributions);
+    const nextLayout = nextContribution.manifest.defaultLayout;
+    const supportsPrimarySidebar = nextContribution.manifest.capabilities.primarySidebar;
+    const supportsSecondarySidebar = nextContribution.manifest.capabilities.secondarySidebar;
+    const supportsPanel = nextContribution.manifest.capabilities.panel;
+
+    if (activeSidebar === next && supportsPrimarySidebar && showPrimarySidebar) {
       setShowPrimarySidebar(false);
       return;
     }
+
     setActiveSidebar(next);
-    setShowPrimarySidebar(true);
+    setShowPrimarySidebar(supportsPrimarySidebar ? (nextLayout?.showPrimarySidebar ?? true) : false);
+    setShowSecondarySidebar(supportsSecondarySidebar ? (nextLayout?.showSecondarySidebar ?? true) : false);
+    setShowPanel(supportsPanel ? (nextLayout?.showPanel ?? true) : false);
+
+    if (nextLayout?.primarySidebarWidth) {
+      setPrimarySidebarWidth(nextLayout.primarySidebarWidth);
+    }
+    if (nextLayout?.secondarySidebarWidth) {
+      setSecondarySidebarWidth(nextLayout.secondarySidebarWidth);
+    }
+    if (nextLayout?.panelHeight) {
+      setPanelHeight(nextLayout.panelHeight);
+    }
+    if (nextLayout?.activePanelTab) {
+      setActivePanelTab(nextLayout.activePanelTab);
+    }
   }
 
   async function handleOpenFile(node: FileNode) {
@@ -612,14 +733,41 @@ export function useWorkbenchController(): WorkbenchController {
     event.target.value = "";
   }
 
-  async function handleOpenServerWorkspace(path: string) {
+  async function handleOpenServerWorkspace(path: string, backendProfile = activeBackendProfile) {
     try {
-      const nextWorkspace = await fetchServerWorkspace(path, 1);
+      if (!backendProfile) {
+        throw new Error("No backend profile selected.");
+      }
+      if (backendProfile.id !== activeBackendProfile?.id) {
+        setActiveBackendProfile(backendProfile.id);
+      }
+      const nextWorkspace = await fetchServerWorkspace(path, 1, backendProfile);
       resetWorkbenchWithWorkspace(nextWorkspace);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Failed to open server folder.");
       throw error;
     }
+  }
+
+  async function handleOpenRecentWorkspaceEntry(
+    workspaceEntry: ReturnType<typeof useWorkbenchStore.getState>["recentWorkspaces"][number]
+  ) {
+    if (workspaceEntry.source !== "server") {
+      window.alert("Local recent folders cannot be reopened automatically in the browser. Please choose Open Folder again.");
+      return;
+    }
+
+    const targetBackendProfile =
+      (workspaceEntry.backendProfileId
+        ? backendProfiles.find((item) => item.id === workspaceEntry.backendProfileId)
+        : null) ?? activeBackendProfile;
+
+    if (!targetBackendProfile) {
+      window.alert("The backend profile used by this workspace is no longer available.");
+      return;
+    }
+
+    await handleOpenServerWorkspace(workspaceEntry.path, targetBackendProfile);
   }
 
   async function handleSave() {
@@ -654,6 +802,50 @@ export function useWorkbenchController(): WorkbenchController {
     setExternalFileChangeDialog(null);
   }
 
+  function saveBackendProfileDraft(draft: {
+    id: string | null;
+    name: string;
+    kind: BackendConnectionProfile["kind"];
+    httpBaseUrl: string;
+    wsBaseUrl: string;
+    description: string;
+  }) {
+    const profileId = draft.id ?? createId();
+    const nextProfile = buildBackendConnectionProfile({
+      id: profileId,
+      name: draft.name,
+      kind: draft.kind,
+      httpBaseUrl: draft.httpBaseUrl,
+      wsBaseUrl: draft.wsBaseUrl,
+      description: draft.description,
+    });
+    saveBackendProfile(nextProfile);
+    return profileId;
+  }
+
+  async function testBackendProfileDraft(draft: {
+    id: string | null;
+    name: string;
+    kind: BackendConnectionProfile["kind"];
+    httpBaseUrl: string;
+    wsBaseUrl: string;
+    description: string;
+  }) {
+    const profile = buildBackendConnectionProfile({
+      id: draft.id ?? "preview-profile",
+      name: draft.name,
+      kind: draft.kind,
+      httpBaseUrl: draft.httpBaseUrl,
+      wsBaseUrl: draft.wsBaseUrl,
+      description: draft.description,
+    });
+    const [health, nextCapabilities] = await Promise.all([
+      fetchBackendHealth(profile),
+      fetchCapabilities(profile),
+    ]);
+    return { health, capabilities: nextCapabilities };
+  }
+
   function handleValidateTab(tabId: string, markers: MonacoEditor.IMarker[]) {
     setTabDiagnostics(
       tabId,
@@ -672,6 +864,19 @@ export function useWorkbenchController(): WorkbenchController {
 
   const activityContext = useMemo<ActivityRenderContext>(
     () => ({
+      plugins: activityContributions,
+      availablePlugins: availableContributions,
+      activePlugin: activeContribution,
+      disabledPluginIds,
+      extensionSearchQuery,
+      extensionCategoryFilter,
+      extensionStatusFilter,
+      selectedExtensionId,
+      backendProfiles,
+      activeBackendProfile,
+      backendConnectionState,
+      backendConnectionError,
+      backendHealth,
       workspace,
       allOpenEditors,
       activeEditorTab,
@@ -700,6 +905,8 @@ export function useWorkbenchController(): WorkbenchController {
       onRefreshNode: refreshWorkspaceNode,
       onOpenFolder: openFolder,
       onOpenWorkspace: openWorkspace,
+      onActivatePlugin: handleActivityClick,
+      onActivateBackendProfile: setActiveBackendProfile,
       onSetActiveTab: handleSetActiveTab,
       onCloseTab: closeTab,
       onFocusGroup: setFocusedGroup,
@@ -744,6 +951,13 @@ export function useWorkbenchController(): WorkbenchController {
           setExplorerScrollTop(workspaceKey, scrollTop);
         }
       },
+      onEnablePlugin: enablePlugin,
+      onDisablePlugin: disablePlugin,
+      onTogglePluginEnabled: togglePluginEnabled,
+      onSetExtensionSearchQuery: setExtensionSearchQuery,
+      onSetExtensionCategoryFilter: setExtensionCategoryFilter,
+      onSetExtensionStatusFilter: setExtensionStatusFilter,
+      onSetSelectedExtensionId: setSelectedExtensionId,
       onLitegraphSaveWorkflow: handleSaveLitegraphWorkflow,
       onLitegraphRunWorkflow: handleRunLitegraphWorkflow,
       onLitegraphCancelQueueItem: handleCancelLitegraphQueue,
@@ -761,6 +975,17 @@ export function useWorkbenchController(): WorkbenchController {
       dragState,
       dropIndicator,
       activePanelTab,
+      availableContributions,
+      backendProfiles,
+      activeBackendProfile,
+      backendConnectionState,
+      backendConnectionError,
+      backendHealth,
+      disabledPluginIds,
+      extensionSearchQuery,
+      extensionCategoryFilter,
+      extensionStatusFilter,
+      selectedExtensionId,
       activeDiagnostics,
       sessionEvents,
       terminalPreferences,
@@ -779,6 +1004,8 @@ export function useWorkbenchController(): WorkbenchController {
       refreshWorkspaceNode,
       openFolder,
       openWorkspace,
+      handleActivityClick,
+      setActiveBackendProfile,
       handleSetActiveTab,
       updateDropIndicatorFromTab,
       handleTabDrop,
@@ -799,7 +1026,15 @@ export function useWorkbenchController(): WorkbenchController {
       setExplorerExpandedPaths,
       setExplorerSelectedPath,
       setExplorerScrollTop,
+      enablePlugin,
+      disablePlugin,
+      togglePluginEnabled,
+      setExtensionSearchQuery,
+      setExtensionCategoryFilter,
+      setExtensionStatusFilter,
+      setSelectedExtensionId,
       workspaceKey,
+      activeContribution,
     ]
   );
 
@@ -822,11 +1057,7 @@ export function useWorkbenchController(): WorkbenchController {
     onOpenWorkspace: openWorkspace,
     recentWorkspaces,
     onOpenRecentWorkspace: (workspaceEntry) => {
-      if (workspaceEntry.source === "server") {
-        void handleOpenServerWorkspace(workspaceEntry.path);
-        return;
-      }
-      window.alert("Local recent folders cannot be reopened automatically in the browser. Please choose Open Folder again.");
+      void handleOpenRecentWorkspaceEntry(workspaceEntry);
     },
     onSave: handleSave,
   });
@@ -837,6 +1068,7 @@ export function useWorkbenchController(): WorkbenchController {
     serverDialogOpen,
     setServerDialogOpen,
     commandPaletteOpen,
+    connectionDialogOpen,
     commandPaletteCommands,
     menuCommands,
     menuNodes,
@@ -852,8 +1084,14 @@ export function useWorkbenchController(): WorkbenchController {
     panelHeight,
     activeSidebar,
     activeContribution,
+    availableContributions,
     activityContext,
     recentWorkspaces,
+    backendProfiles,
+    activeBackendProfile,
+    backendConnectionState,
+    backendConnectionError,
+    backendHealth,
     canSaveActiveTab,
     canOpenServerFolder,
     onSelectActivity: handleActivityClick,
@@ -864,15 +1102,17 @@ export function useWorkbenchController(): WorkbenchController {
     onOpenWorkspace: openWorkspace,
     onOpenServerFolder: () => setServerDialogOpen(true),
     onOpenRecentWorkspace: (workspaceEntry) => {
-      if (workspaceEntry.source === "server") {
-        void handleOpenServerWorkspace(workspaceEntry.path);
-        return;
-      }
-      window.alert("Local recent folders cannot be reopened automatically in the browser. Please choose Open Folder again.");
+      void handleOpenRecentWorkspaceEntry(workspaceEntry);
     },
     onSave: handleSave,
     onOpenCommandPalette: () => setCommandPaletteOpen(true),
     onCloseCommandPalette: () => setCommandPaletteOpen(false),
+    onOpenConnectionDialog: () => setConnectionDialogOpen(true),
+    onCloseConnectionDialog: () => setConnectionDialogOpen(false),
+    onActivateBackendProfile: (profileId) => setActiveBackendProfile(profileId),
+    onDeleteBackendProfile: (profileId) => removeBackendProfile(profileId),
+    onSaveBackendProfile: saveBackendProfileDraft,
+    onTestBackendProfile: testBackendProfileDraft,
     onCloseExplorerDialog: closeExplorerDialog,
     onCloseExternalFileChangeDialog: closeExternalFileChangeDialog,
     onToggleExternalFileCompare: toggleExternalFileCompare,
@@ -889,3 +1129,4 @@ export function useWorkbenchController(): WorkbenchController {
     onWorkspaceInputChange: handleWorkspaceInput,
   };
 }
+

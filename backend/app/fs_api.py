@@ -180,12 +180,27 @@ def _watched_directory_paths(root_path: Path, watch_paths: list[str]) -> list[Pa
 
 
 @router.get("/capabilities")
-async def capabilities() -> dict[str, str | bool]:
+async def capabilities() -> dict[str, object]:
+    features = ["litegraph"]
+    if settings.enable_server_file_browser:
+        features.append("filesystem")
+    if settings.enable_terminal:
+        features.append("terminal")
+        features.append("ssh-proxy")
+
     return {
         "app_env": settings.app_env,
+        "instance_name": settings.app_instance_name,
+        "instance_id": settings.app_instance_id,
         "server_file_browser": settings.enable_server_file_browser,
         "file_browser_base_dir": str(settings.file_browser_base_dir),
         "platform": os.name,
+        "features": features,
+        "transport": {
+            "http": True,
+            "websocket": True,
+            "ssh_proxy": settings.enable_terminal,
+        },
     }
 
 

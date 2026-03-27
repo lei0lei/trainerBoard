@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
+import type { FileSystemProvider } from "./file-system-provider";
 import { joinPath, parentPathOf } from "./path-utils";
 import type { ExplorerDialogMode, ExplorerDialogState } from "./explorer-file-dialog";
 import type { FileNode, WorkspaceRoot } from "./types";
-import type { FileSystemProvider } from "../explorer";
 
 type ExplorerDialogRuntimeState = ExplorerDialogState & {
   parent: FileNode | WorkspaceRoot | null;
@@ -169,3 +169,4 @@ export function useExplorerDialog({
     openDeleteDialog: (node: FileNode) => openExplorerDialog("delete", { node }),
   };
 }
+

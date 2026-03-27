@@ -1,6 +1,6 @@
-import type { LucideIcon } from "lucide-react";
+﻿import type { LucideIcon } from "lucide-react";
 
-export type SidebarKey = "explorer" | "litegraph" | "search" | "source-control" | "run" | "extensions";
+export type SidebarKey = string;
 
 export type ActivityItem = {
   key: SidebarKey;
@@ -51,12 +51,25 @@ export type DiagnosticMarker = {
   source?: string;
 };
 
+export type BackendConnectionKind = "local" | "remote";
+
+export type BackendConnectionProfile = {
+  id: string;
+  name: string;
+  kind: BackendConnectionKind;
+  httpBaseUrl: string;
+  wsBaseUrl: string;
+  description?: string;
+};
+
 export type RecentWorkspace = {
   id: string;
   label: string;
   path: string;
   source: "server" | "local";
   type: "folder" | "workspace";
+  backendProfileId?: string | null;
+  backendProfileName?: string | null;
 };
 
 export type TerminalPreferences = {
@@ -115,3 +128,4 @@ export type DropIndicator = {
   tabId?: string;
   edge: "before" | "after" | "group";
 } | null;
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { WorkbenchCommand, WorkbenchMenuId, WorkbenchMenuNode, WorkbenchMenuPlacement } from "./commands";
 
@@ -134,3 +134,4 @@ export function buildKeyboardCombo(event: KeyboardEvent) {
 export function findCommandByShortcut(commands: WorkbenchResolvedCommand[], sequence: string) {
   return commands.find((command) => command.shortcutBindings.includes(sequence) && !command.disabled) ?? null;
 }
+

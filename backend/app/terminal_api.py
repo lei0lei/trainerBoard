@@ -197,6 +197,12 @@ class SshTerminalSession(BaseTerminalSession):
             self.client.close()
 
 
+def _supported_terminal_modes() -> list[TerminalMode]:
+    if os.name == "nt":
+        return ["local-shell"]
+    return ["ssh"]
+
+
 def _terminal_mode() -> TerminalMode:
     if settings.app_env == "desktop" and os.name == "nt":
         return "local-shell"
@@ -219,9 +225,15 @@ async def terminal_capabilities() -> dict:
     if not available_shells:
         available_shells = ["powershell", "cmd"]
 
+    supported_modes = _supported_terminal_modes()
+    default_mode = _terminal_mode()
+
     return {
         "enabled": settings.enable_terminal,
-        "mode": _terminal_mode(),
+        "transport": "websocket-proxy",
+        "mode": default_mode,
+        "default_mode": default_mode,
+        "supported_modes": supported_modes,
         "available_shells": available_shells,
         "ssh": {
             "default_host": settings.terminal_ssh_host,
@@ -229,6 +241,7 @@ async def terminal_capabilities() -> dict:
             "default_username": settings.terminal_ssh_username,
             "default_key_path": settings.terminal_ssh_key_path,
             "default_shell": settings.terminal_ssh_shell,
+            "auth_methods": ["password", "key"],
         },
     }
 

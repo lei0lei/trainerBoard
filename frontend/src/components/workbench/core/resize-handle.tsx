@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+﻿import type { MouseEvent } from "react";
 import { GripHorizontal, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,3 +30,4 @@ export function ResizeHandle({
     </button>
   );
 }
+

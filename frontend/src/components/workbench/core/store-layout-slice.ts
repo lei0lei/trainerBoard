@@ -1,4 +1,4 @@
-import type { LayoutSlice, WorkbenchSliceCreator } from "./store-types";
+﻿import type { LayoutSlice, WorkbenchSliceCreator } from "./store-types";
 
 function nextExplorerUiState(current: LayoutSlice["explorerUiByWorkspace"], workspaceKey: string) {
   return current[workspaceKey] ?? { expandedPaths: [], selectedPath: null, scrollTop: 0 };
@@ -59,3 +59,4 @@ export const createLayoutSlice: WorkbenchSliceCreator<LayoutSlice> = (set) => ({
       },
     })),
 });
+

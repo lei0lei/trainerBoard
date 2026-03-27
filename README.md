@@ -1,113 +1,130 @@
-# TrainerBoard Template
+# TrainerBoard
 
-A unified **Next.js + shadcn/ui + FastAPI** starter that supports:
+TrainerBoard is a unified **PWA frontend + FastAPI backend** workspace.
 
-- Web development on Windows/macOS/Linux
-- Linux deployment through a browser
-- Windows desktop packaging with `pywebview + PyInstaller`
+## Goals
 
-## Stack
+- one frontend, connect to **local or remote** backends
+- one backend contract for HTTP / WebSocket / SSH proxy
+- same interaction model for:
+  - local Windows development: PWA -> `localhost`
+  - remote Linux deployment: PWA -> `https://host`
+- plugin-oriented workbench UI
 
-- Frontend: Next.js App Router + Tailwind CSS + shadcn-style structure
-- Backend: FastAPI
-- Desktop: embedded FastAPI + pywebview
-- Deployment: Docker for Linux, PyInstaller for Windows
+---
 
-## Project structure
+## Architecture
+
+```text
+frontend/   Next.js App Router, exported as a PWA-oriented static frontend
+backend/    FastAPI service, filesystem / litegraph / terminal / SSH proxy
+scripts/    local helper scripts
+Dockerfile  Linux container build
+```
+
+### Runtime model
+
+```text
+PWA frontend
+  -> HTTP API
+  -> WebSocket
+  -> FastAPI backend
+       -> filesystem
+       -> LiteGraph queue
+       -> terminal proxy
+       -> SSH proxy
+```
+
+The frontend can store multiple backend profiles and switch between them.
+
+---
+
+## Repository structure
 
 ```text
 .
-|- frontend/                # Next.js frontend
-|- backend/                 # FastAPI backend
-|- desktop/                 # Windows desktop entry
-|- scripts/                 # helper scripts
-|- Dockerfile               # Linux container build
+|- frontend/
+|  |- src/
+|  |  `- components/workbench/
+|  |     |- core/               # workbench core, store, connection layer, contracts
+|  |     `- plugins/            # builtin plugins + extensions
+|  `- scripts/                  # plugin registry generation
+|- backend/
+|  |- app/                      # FastAPI app modules
+|  |- requirements.txt
+|  `- run.py
+|- scripts/
+|  |- start-local.ps1           # local Windows helper
+|  `- start-local.sh            # local Linux/macOS helper
+|- Dockerfile
 `- README.md
 ```
-
-## Requirements
-
-- Node.js 20+
-- npm 10+
-- Python 3.10+
 
 ---
 
 ## Environment modes
 
-This template now includes 3 preset environment examples.
+Only two main modes are kept now.
 
-### 1) Development
+### 1. Development
 
-Frontend:
-
-- `frontend/.env.development.example`
-- Next.js always requests `/api/*`
-- During `npm run dev`, Next.js rewrites `/api/*` to `BACKEND_DEV_ORIGIN`
-
-Backend:
-
+Backend example:
 - `backend/.env.development.example`
-- default host: `0.0.0.0`
-- default port: `8000`
-- frontend static serving: off
 
-### 2) Linux
+Frontend example:
+- `frontend/.env.development.example`
 
-Frontend:
+Use this when:
+- frontend runs with `npm run dev`
+- backend runs with `python run.py`
+- Next.js rewrites `/api/*` to `BACKEND_DEV_ORIGIN`
 
-- `frontend/.env.linux.example`
-- uses relative `/api/*`
+### 2. Linux / deployed backend
 
-Backend:
-
+Backend example:
 - `backend/.env.linux.example`
-- default host: `0.0.0.0`
-- default port: `8000`
-- frontend static serving: on
 
-### 3) Desktop
+Frontend example:
+- `frontend/.env.linux.example`
 
-Frontend:
-
-- `frontend/.env.desktop.example`
-- uses relative `/api/*`
-
-Backend/Desktop:
-
-- `backend/.env.desktop.example`
-- host: `127.0.0.1`
-- port: `0` meaning auto-select a free localhost port
-- frontend static serving: on
+Use this when:
+- frontend is built as static assets
+- FastAPI serves `/api/*`
+- PWA can connect to local or remote backend profiles
 
 ---
 
-## Development run
+## Backend configuration highlights
 
-### Frontend
+Important backend env vars:
 
-```bash
-cd frontend
-npm install
-# Copy frontend/.env.development.example to frontend/.env.local if needed
-npm run dev
-```
+- `APP_ENV`
+- `APP_HOST`
+- `APP_PORT`
+- `APP_INSTANCE_NAME`
+- `APP_INSTANCE_ID`
+- `SERVE_FRONTEND`
+- `ALLOW_DEV_CORS`
+- `CORS_ALLOWED_ORIGINS`
+- `ENABLE_TERMINAL`
+- `TERMINAL_SSH_HOST`
+- `TERMINAL_SSH_PORT`
+- `TERMINAL_SSH_USERNAME`
+- `TERMINAL_SSH_PASSWORD`
+- `TERMINAL_SSH_KEY_PATH`
+- `TERMINAL_SSH_SHELL`
 
-Frontend runs on:
+The backend now exposes richer metadata through:
 
-- `http://127.0.0.1:3000`
+- `GET /api/health`
+- `GET /api/capabilities`
+- `GET /api/terminal/capabilities`
 
-Static preview after build:
+---
 
-```bash
-cd frontend
-npm run build
-npm run start
-```
+## Local development
 
-> Because this project uses `output: export`, `next start` is not valid. `npm run start` now serves the generated `out/` directory as a static preview.
-
-### Backend
+### 1. Start backend
 
 ```bash
 cd backend
@@ -118,23 +135,42 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
-# Copy backend/.env.development.example to backend/.env if needed
 python run.py
 ```
 
-Backend runs on:
+Default backend address:
 
 - `http://127.0.0.1:8000`
 
-Health endpoint:
+### 2. Start frontend
 
-- `GET /api/health`
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-> In development, the frontend still calls `/api/health`; Next.js rewrites that request to the FastAPI server.
+Default frontend address:
+
+- `http://127.0.0.1:3000`
+
+### 3. Optional helper scripts
+
+Windows:
+
+```powershell
+./scripts/start-local.ps1
+```
+
+Linux / macOS:
+
+```bash
+bash ./scripts/start-local.sh
+```
 
 ---
 
-## Linux web deployment
+## Production / remote deployment
 
 Build frontend:
 
@@ -144,72 +180,49 @@ npm install
 npm run build
 ```
 
-Then run backend:
+Run backend:
 
 ```bash
 cd backend
 pip install -r requirements.txt
-# Copy backend/.env.linux.example to backend/.env if needed
 python run.py
 ```
 
-FastAPI will serve `frontend/out` and expose both:
+If `SERVE_FRONTEND=true`, FastAPI serves the exported frontend from `frontend/out`.
 
-- `/api/*`
-- frontend static pages
+You can also deploy the frontend statically behind Nginx and connect it to one or more FastAPI instances.
 
 ---
 
-## Docker deployment
+## Docker
 
 ```bash
-docker build -t trainerboard-template .
-docker run -p 8000:8000 trainerboard-template
+docker build -t trainerboard .
+docker run -p 8000:8000 trainerboard
 ```
-
-Open:
-
-- `http://127.0.0.1:8000`
 
 ---
 
-## Windows desktop packaging
+## Current direction
 
-Install desktop dependencies:
+- unified local/remote architecture
+- no desktop shell as primary path
+- SSH access goes through **backend WebSocket proxy**, not direct browser SSH
+- workbench features stay plugin-oriented
+
+---
+
+## Validation
+
+Frontend:
 
 ```bash
-pip install -r desktop/requirements.txt
+cd frontend
+npm run build
 ```
 
-Build:
+Backend:
 
-```powershell
-./scripts/build-windows.ps1
+```bash
+python -m compileall backend/app
 ```
-
-Output:
-
-- `dist/TrainerBoard/`
-
-Desktop behavior:
-
-- frontend and backend are packaged together
-- FastAPI starts inside the app
-- the desktop app auto-selects a free localhost port
-- pywebview opens that local URL
-
----
-
-## Notes
-
-- Frontend API requests are now **relative-path first**.
-- Development mode uses a Next.js rewrite instead of a hardcoded public API URL.
-- Desktop mode no longer hardcodes port `8000`; it uses an available localhost port automatically.
-
-If you want, I can continue next with:
-
-1. login page
-2. dashboard layout
-3. SQLite/PostgreSQL integration
-4. Docker Compose
-5. one-click dev startup scripts

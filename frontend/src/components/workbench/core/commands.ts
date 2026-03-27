@@ -1,4 +1,4 @@
-export type WorkbenchMenuId = "File" | "Edit" | "Selection" | "View" | "Go" | "Run" | "Terminal" | "Help";
+﻿export type WorkbenchMenuId = "File" | "Edit" | "Selection" | "View" | "Go" | "Run" | "Terminal" | "Help";
 
 export type WorkbenchMenuPlacement = {
   menu: WorkbenchMenuId;
@@ -37,3 +37,4 @@ export type WorkbenchMenuNode =
       label: string;
       items: WorkbenchMenuNode[];
     };
+

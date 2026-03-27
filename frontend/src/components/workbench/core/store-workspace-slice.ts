@@ -1,4 +1,4 @@
-import type { TerminalPreferences } from "./types";
+﻿import type { TerminalPreferences } from "./types";
 import { DEFAULT_EDITOR_ACTIVE_IDS, DEFAULT_EDITOR_GROUP_TAB_IDS, removeEditorTabsByPath, updateEditorTabsForRename } from "./store-editor-helpers";
 import { buildWorkspaceIndex, rememberWorkspace, renameWorkspaceNode, removeWorkspaceNode, updateWorkspaceDirectoryChildren } from "./store-helpers";
 import { createId } from "./store-helpers";
@@ -64,14 +64,25 @@ export const createWorkspaceSlice: WorkbenchSliceCreator<WorkspaceSlice> = (set)
   resetWorkbenchWithWorkspace: (workspace) =>
     set((state) => {
       const level: SessionLevel = "info";
+      const activeBackendProfile = state.backendProfiles.find((item) => item.id === state.activeBackendProfileId) ?? null;
+      const recentWorkspaces = workspace
+        ? rememberWorkspace(state.recentWorkspaces, workspace, {
+            backendProfileId: activeBackendProfile?.id,
+            backendProfileName: activeBackendProfile?.name,
+          })
+        : state.recentWorkspaces;
+      const message = workspace
+        ? `Opened ${workspace.source === "server" ? "server" : "local"} ${workspace.type}: ${workspace.root_path ?? workspace.name}`
+        : "Cleared current workspace.";
+
       return {
         workspace,
         workspaceIndex: buildWorkspaceIndex(workspace),
-        recentWorkspaces: rememberWorkspace(state.recentWorkspaces, workspace),
+        recentWorkspaces,
         sessionEvents: [
           {
             id: createId(),
-            message: `Opened ${workspace?.source === "server" ? "server" : "local"} ${workspace?.type ?? "workspace"}: ${workspace?.root_path ?? workspace?.name ?? "unknown"}`,
+            message,
             level,
             createdAt: new Date().toISOString(),
           },
@@ -89,3 +100,4 @@ export const createWorkspaceSlice: WorkbenchSliceCreator<WorkspaceSlice> = (set)
       };
     }),
 });
+

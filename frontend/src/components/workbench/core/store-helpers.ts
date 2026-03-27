@@ -1,4 +1,4 @@
-import type { EditorTab, FileNode, RecentWorkspace, WorkspaceRoot } from "./types";
+﻿import type { EditorTab, FileNode, RecentWorkspace, WorkspaceRoot } from "./types";
 import type { WorkspaceIndex } from "./store-types";
 
 export function createId() {
@@ -8,15 +8,28 @@ export function createId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function rememberWorkspace(recent: RecentWorkspace[], workspace: WorkspaceRoot): RecentWorkspace[] {
+export function rememberWorkspace(
+  recent: RecentWorkspace[],
+  workspace: WorkspaceRoot,
+  options?: { backendProfileId?: string | null; backendProfileName?: string | null }
+): RecentWorkspace[] {
   if (!workspace?.root_path || !workspace.source) return recent;
 
+  const backendProfileId = workspace.source === "server" ? options?.backendProfileId ?? null : null;
+  const backendProfileName = workspace.source === "server" ? options?.backendProfileName ?? null : null;
+  const idParts = [workspace.source, workspace.root_path];
+  if (backendProfileId) {
+    idParts.push(backendProfileId);
+  }
+
   const item: RecentWorkspace = {
-    id: `${workspace.source}:${workspace.root_path}`,
+    id: idParts.join(":"),
     label: workspace.name,
     path: workspace.root_path,
     source: workspace.source,
     type: workspace.type,
+    backendProfileId,
+    backendProfileName,
   };
 
   return [item, ...recent.filter((entry) => entry.id !== item.id)].slice(0, 12);
@@ -397,3 +410,4 @@ export function applyWorkspaceWatchEvents(workspace: WorkspaceRoot, events: File
 
   return nextWorkspace;
 }
+

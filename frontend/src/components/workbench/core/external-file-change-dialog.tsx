@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@/components/ui/button";
-import { MonacoDiffView } from "../explorer/monaco-diff-view";
+import { MonacoDiffView } from "./monaco-diff-view";
 import { Modal } from "./modal";
 
 export type ExternalFileChangeDialogState = {
@@ -80,3 +80,4 @@ export function ExternalFileChangeDialog({
     </Modal>
   );
 }
+

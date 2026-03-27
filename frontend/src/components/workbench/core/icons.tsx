@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export function ChromeToggleIcon({ position, active }: { position: "left" | "bottom" | "right"; active: boolean }) {
@@ -50,3 +50,4 @@ export function VscodeIconButton({
     </button>
   );
 }
+

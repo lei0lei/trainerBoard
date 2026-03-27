@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { PropsWithChildren, ReactNode } from "react";
 import { useEffect } from "react";
@@ -52,3 +52,4 @@ export function Modal({
     </div>
   );
 }
+

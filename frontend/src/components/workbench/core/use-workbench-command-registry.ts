@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef } from "react";
 import { getActivityCommands } from "./activity-registry";
@@ -206,3 +206,4 @@ export function useWorkbenchCommandRegistry({
     menus: menuState.menus as Record<string, WorkbenchMenuNode[]>,
   };
 }
+

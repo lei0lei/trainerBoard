@@ -1,4 +1,4 @@
-import type { FileNode } from "./types";
+﻿import type { FileNode } from "./types";
 
 export function parentPathOf(path: string) {
   const normalized = path.replace(/\\/g, "/");
@@ -25,3 +25,4 @@ export function findNodeByPath(nodes: FileNode[], targetPath: string): FileNode 
   }
   return null;
 }
+

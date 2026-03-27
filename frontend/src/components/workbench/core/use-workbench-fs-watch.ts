@@ -1,23 +1,26 @@
 import { useEffect } from "react";
 import { getFileSystemWatchWebSocketUrl, type FileSystemWatchEvent } from "./api";
+import type { BackendConnectionProfile } from "./types";
 
 export function useWorkbenchFsWatch({
   enabled,
   rootPath,
   watchedPaths,
+  backendProfile,
   onChanged,
   onEvent,
 }: {
   enabled: boolean;
   rootPath?: string;
   watchedPaths: string[];
+  backendProfile?: BackendConnectionProfile | null;
   onChanged: (payload: FileSystemWatchEvent, changedPaths: string[]) => void;
   onEvent?: (payload: FileSystemWatchEvent) => void;
 }) {
   useEffect(() => {
     if (!enabled || !rootPath) return;
 
-    const wsUrl = getFileSystemWatchWebSocketUrl(rootPath, watchedPaths);
+    const wsUrl = getFileSystemWatchWebSocketUrl(rootPath, watchedPaths, backendProfile);
     if (!wsUrl) return;
 
     const socket = new WebSocket(wsUrl);
@@ -34,5 +37,5 @@ export function useWorkbenchFsWatch({
     };
 
     return () => socket.close();
-  }, [enabled, onChanged, onEvent, rootPath, watchedPaths]);
+  }, [backendProfile, enabled, onChanged, onEvent, rootPath, watchedPaths]);
 }

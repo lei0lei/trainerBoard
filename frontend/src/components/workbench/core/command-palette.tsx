@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Command, CornerDownLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -138,3 +138,4 @@ export function CommandPalette({
     </Modal>
   );
 }
+

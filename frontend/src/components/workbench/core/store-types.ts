@@ -1,4 +1,4 @@
-import type { StateCreator } from "zustand";
+﻿import type { StateCreator } from "zustand";
 import type {
   DiagnosticMarker,
   DragState,
@@ -8,6 +8,7 @@ import type {
   LitegraphNodeSelection,
   LitegraphQueueItem,
   LitegraphWorkflowSummary,
+  BackendConnectionProfile,
   RecentWorkspace,
   ResizeState,
   SidebarKey,
@@ -80,6 +81,14 @@ export type LayoutSlice = {
   setExplorerScrollTop: (workspaceKey: string, scrollTop: number) => void;
 };
 
+export type ConnectionSlice = {
+  backendProfiles: BackendConnectionProfile[];
+  activeBackendProfileId: string;
+  saveBackendProfile: (profile: BackendConnectionProfile) => void;
+  removeBackendProfile: (profileId: string) => void;
+  setActiveBackendProfile: (profileId: string) => void;
+};
+
 export type WorkspaceSlice = {
   workspace: WorkspaceRoot;
   workspaceIndex: WorkspaceIndex | null;
@@ -147,5 +156,23 @@ export type LitegraphSlice = {
   redoLitegraphHistory: () => Record<string, unknown> | null;
 };
 
-export type WorkbenchState = LayoutSlice & WorkspaceSlice & SessionSlice & EditorSlice & LitegraphSlice;
+export type ExtensionStatusFilter = "all" | "enabled" | "disabled";
+
+export type ExtensionsSlice = {
+  disabledPluginIds: string[];
+  extensionSearchQuery: string;
+  extensionCategoryFilter: string;
+  extensionStatusFilter: ExtensionStatusFilter;
+  selectedExtensionId: string | null;
+  enablePlugin: (pluginId: string) => void;
+  disablePlugin: (pluginId: string) => void;
+  togglePluginEnabled: (pluginId: string) => void;
+  setExtensionSearchQuery: (value: string) => void;
+  setExtensionCategoryFilter: (value: string) => void;
+  setExtensionStatusFilter: (value: ExtensionStatusFilter) => void;
+  setSelectedExtensionId: (pluginId: string | null) => void;
+};
+
+export type WorkbenchState = LayoutSlice & ConnectionSlice & WorkspaceSlice & SessionSlice & EditorSlice & LitegraphSlice & ExtensionsSlice;
 export type WorkbenchSliceCreator<T> = StateCreator<WorkbenchState, [["zustand/persist", unknown]], [], T>;
+

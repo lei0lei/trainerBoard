@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="TrainerBoard icon 192">
+  <defs>
+    <linearGradient id="grad-192" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="#0f172a"/>
+  <path d="M42 50h108v24H102v72H78V74H42z" fill="url(#grad-192)"/>
+  <circle cx="138" cy="126" r="22" fill="#38bdf8" opacity="0.96"/>
+</svg>

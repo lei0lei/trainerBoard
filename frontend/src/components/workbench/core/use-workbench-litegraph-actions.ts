@@ -6,9 +6,10 @@ import {
   retryLitegraphQueueItem,
   saveLitegraphWorkflow,
 } from "./api";
-import type { LitegraphQueueItem } from "./types";
+import type { LitegraphQueueItem, BackendConnectionProfile } from "./types";
 
 export function useWorkbenchLitegraphActions({
+  backendProfile,
   litegraphGraph,
   litegraphWorkflowName,
   setLitegraphLatestResult,
@@ -16,6 +17,7 @@ export function useWorkbenchLitegraphActions({
   markLitegraphSaved,
   addSessionEvent,
 }: {
+  backendProfile?: BackendConnectionProfile | null;
   litegraphGraph: Record<string, unknown> | null;
   litegraphWorkflowName: string;
   setLitegraphLatestResult: (item: LitegraphQueueItem | null) => void;
@@ -30,13 +32,13 @@ export function useWorkbenchLitegraphActions({
     }
 
     try {
-      const result = await saveLitegraphWorkflow(litegraphWorkflowName, litegraphGraph);
+      const result = await saveLitegraphWorkflow(litegraphWorkflowName, litegraphGraph, backendProfile);
       markLitegraphSaved(litegraphGraph);
       addSessionEvent(`Saved LiteGraph workflow ${result.name}`, "success");
     } catch (error) {
       addSessionEvent(error instanceof Error ? error.message : "Failed to save LiteGraph workflow.", "warning");
     }
-  }, [addSessionEvent, litegraphGraph, litegraphWorkflowName, markLitegraphSaved]);
+  }, [addSessionEvent, backendProfile, litegraphGraph, litegraphWorkflowName, markLitegraphSaved]);
 
   const handleRunLitegraphWorkflow = useCallback(async () => {
     if (!litegraphGraph) {
@@ -45,42 +47,51 @@ export function useWorkbenchLitegraphActions({
     }
 
     try {
-      const item = await enqueueLitegraphWorkflow(litegraphGraph, litegraphWorkflowName);
+      const item = await enqueueLitegraphWorkflow(litegraphGraph, litegraphWorkflowName, backendProfile);
       addSessionEvent(`Queued LiteGraph workflow ${item.workflow_name}`, "success");
     } catch (error) {
       addSessionEvent(error instanceof Error ? error.message : "Failed to queue LiteGraph workflow.", "warning");
     }
-  }, [addSessionEvent, litegraphGraph, litegraphWorkflowName]);
+  }, [addSessionEvent, backendProfile, litegraphGraph, litegraphWorkflowName]);
 
-  const handleCancelLitegraphQueue = useCallback(async (itemId: string) => {
-    try {
-      const item = await cancelLitegraphQueueItem(itemId);
-      addSessionEvent(`Cancelled LiteGraph queue item ${item.workflow_name}`, "success");
-    } catch (error) {
-      addSessionEvent(error instanceof Error ? error.message : "Failed to cancel LiteGraph queue item.", "warning");
-    }
-  }, [addSessionEvent]);
+  const handleCancelLitegraphQueue = useCallback(
+    async (itemId: string) => {
+      try {
+        const item = await cancelLitegraphQueueItem(itemId, backendProfile);
+        addSessionEvent(`Cancelled LiteGraph queue item ${item.workflow_name}`, "success");
+      } catch (error) {
+        addSessionEvent(error instanceof Error ? error.message : "Failed to cancel LiteGraph queue item.", "warning");
+      }
+    },
+    [addSessionEvent, backendProfile]
+  );
 
-  const handleRetryLitegraphQueue = useCallback(async (itemId: string) => {
-    try {
-      const item = await retryLitegraphQueueItem(itemId);
-      addSessionEvent(`Retried LiteGraph queue item ${item.workflow_name}`, "success");
-    } catch (error) {
-      addSessionEvent(error instanceof Error ? error.message : "Failed to retry LiteGraph queue item.", "warning");
-    }
-  }, [addSessionEvent]);
+  const handleRetryLitegraphQueue = useCallback(
+    async (itemId: string) => {
+      try {
+        const item = await retryLitegraphQueueItem(itemId, backendProfile);
+        addSessionEvent(`Retried LiteGraph queue item ${item.workflow_name}`, "success");
+      } catch (error) {
+        addSessionEvent(error instanceof Error ? error.message : "Failed to retry LiteGraph queue item.", "warning");
+      }
+    },
+    [addSessionEvent, backendProfile]
+  );
 
-  const handleClearLitegraphQueue = useCallback(async (mode: "finished" | "all") => {
-    try {
-      const items = await clearLitegraphQueue(mode);
-      setLitegraphQueue(items);
-      const latestCompleted = items.find((item) => item.status === "completed") ?? null;
-      setLitegraphLatestResult(latestCompleted);
-      addSessionEvent(mode === "all" ? "Cleared all LiteGraph queue items." : "Cleared finished LiteGraph queue items.", "success");
-    } catch (error) {
-      addSessionEvent(error instanceof Error ? error.message : "Failed to clear LiteGraph queue.", "warning");
-    }
-  }, [addSessionEvent, setLitegraphLatestResult, setLitegraphQueue]);
+  const handleClearLitegraphQueue = useCallback(
+    async (mode: "finished" | "all") => {
+      try {
+        const items = await clearLitegraphQueue(mode, backendProfile);
+        setLitegraphQueue(items);
+        const latestCompleted = items.find((item) => item.status === "completed") ?? null;
+        setLitegraphLatestResult(latestCompleted);
+        addSessionEvent(mode === "all" ? "Cleared all LiteGraph queue items." : "Cleared finished LiteGraph queue items.", "success");
+      } catch (error) {
+        addSessionEvent(error instanceof Error ? error.message : "Failed to clear LiteGraph queue.", "warning");
+      }
+    },
+    [addSessionEvent, backendProfile, setLitegraphLatestResult, setLitegraphQueue]
+  );
 
   return {
     handleSaveLitegraphWorkflow,

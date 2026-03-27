@@ -1,4 +1,4 @@
-import type { LitegraphNodeSelection } from "./types";
+﻿import type { LitegraphNodeSelection } from "./types";
 import type { LitegraphSlice, WorkbenchSliceCreator } from "./store-types";
 
 const defaultLitegraphSelectedNode: LitegraphNodeSelection = {
@@ -99,3 +99,4 @@ export const createLitegraphSlice: WorkbenchSliceCreator<LitegraphSlice> = (set,
     return nextGraph;
   },
 });
+

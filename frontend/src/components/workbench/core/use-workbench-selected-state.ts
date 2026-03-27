@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkbenchStore } from "./store";
 import { resolveEditorGroups } from "./store-helpers";
@@ -18,6 +18,16 @@ export function useWorkbenchSelectedState() {
       dragState: state.dragState,
       dropIndicator: state.dropIndicator,
       explorerUiByWorkspace: state.explorerUiByWorkspace,
+    }))
+  );
+
+  const connectionState = useWorkbenchStore(
+    useShallow((state) => ({
+      backendProfiles: state.backendProfiles,
+      activeBackendProfileId: state.activeBackendProfileId,
+      saveBackendProfile: state.saveBackendProfile,
+      removeBackendProfile: state.removeBackendProfile,
+      setActiveBackendProfile: state.setActiveBackendProfile,
     }))
   );
 
@@ -92,15 +102,35 @@ export function useWorkbenchSelectedState() {
     }))
   );
 
+  const extensionsState = useWorkbenchStore(
+    useShallow((state) => ({
+      disabledPluginIds: state.disabledPluginIds,
+      extensionSearchQuery: state.extensionSearchQuery,
+      extensionCategoryFilter: state.extensionCategoryFilter,
+      extensionStatusFilter: state.extensionStatusFilter,
+      selectedExtensionId: state.selectedExtensionId,
+      enablePlugin: state.enablePlugin,
+      disablePlugin: state.disablePlugin,
+      togglePluginEnabled: state.togglePluginEnabled,
+      setExtensionSearchQuery: state.setExtensionSearchQuery,
+      setExtensionCategoryFilter: state.setExtensionCategoryFilter,
+      setExtensionStatusFilter: state.setExtensionStatusFilter,
+      setSelectedExtensionId: state.setSelectedExtensionId,
+    }))
+  );
+
   const groups = useMemo(() => resolveEditorGroups(editorState.tabsById, editorState.groupTabIds), [editorState.groupTabIds, editorState.tabsById]);
 
   return {
     ...layoutState,
+    ...connectionState,
     ...workspaceState,
     ...editorState,
     ...sessionState,
     ...litegraphState,
+    ...extensionsState,
     ...uiActions,
     groups,
   };
 }
+
